@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'screens/chat_screen.dart';
+import 'screens/onboarding/welcome_screen.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -19,8 +19,8 @@ class LocalAgentApp extends StatelessWidget {
     return MaterialApp(
       title: 'Local Agent',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme, // Switched to the new Light Theme
-      home: const ChatScreen(),
+      theme: AppTheme.lightTheme,
+      home: const WelcomeScreen(),
     );
   }
 }
