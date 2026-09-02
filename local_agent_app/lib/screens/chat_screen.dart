@@ -1,10 +1,11 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../providers/chat_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/chat_input.dart';
-import '../widgets/typing_indicator.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -42,106 +43,94 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _scrollToBottom();
     });
 
-    if (chatState.error != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(chatState.error!, style: const TextStyle(color: Colors.white)),
-            backgroundColor: AppTheme.errorColor.withOpacity(0.9),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            action: SnackBarAction(label: 'OK', textColor: Colors.white, onPressed: () {}),
-            duration: const Duration(seconds: 6),
-          ),
-        );
-        ref.read(chatProvider.notifier).clearError();
-      });
-    }
-
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildAppBar(context, chatState.selectedModel),
-              Expanded(
-                child: chatState.messages.isEmpty
-                    ? _buildEmptyState()
-                    : _buildMessageList(chatState),
+      backgroundColor: AppTheme.scaffoldBg,
+      body: Stack(
+        children: [
+          // Ambient Top-Center Silver Glow
+          Positioned(
+            top: -150, left: 0, right: 0,
+            child: Center(
+              child: Container(
+                width: 300, height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [Colors.white.withOpacity(0.04), Colors.transparent],
+                  ),
+                ),
               ),
-              ChatInput(
+            ),
+          ),
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          
+          SafeArea(
+            child: Column(
+              children: [
+                _buildAppBar(context, chatState.selectedModel),
+                Expanded(
+                  child: chatState.messages.isEmpty
+                      ? _buildEmptyState()
+                      : _buildMessageList(chatState),
+                ),
+              ],
+            ),
+          ),
+          
+          // Floating Input Bar
+          SafeArea(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: ChatInput(
                 onSend: (text) => ref.read(chatProvider.notifier).sendMessage(text),
                 isLoading: chatState.isLoading,
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildAppBar(BuildContext context, String selectedModel) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceDark.withOpacity(0.8),
-        border: Border(bottom: BorderSide(color: Colors.black.withOpacity(0.05))),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            width: 36, height: 36,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              gradient: const LinearGradient(
-                colors: [AppTheme.accentPrimary, AppTheme.accentSecondary],
-              ),
-              boxShadow: AppTheme.glowShadow,
-            ),
-            child: const Icon(Icons.psychology_rounded, color: Colors.white, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Local Agent', style: TextStyle(
-                  color: AppTheme.textPrimary, fontSize: 17,
-                  fontWeight: FontWeight.w700, letterSpacing: -0.3,
-                )),
-                Row(children: [
-                  Container(width: 6, height: 6, decoration: const BoxDecoration(
-                    shape: BoxShape.circle, color: AppTheme.successColor,
-                  )),
-                  const SizedBox(width: 5),
-                  Text(selectedModel, style: const TextStyle(
-                    color: AppTheme.textMuted, fontSize: 12, fontWeight: FontWeight.w500,
-                  )),
-                ]),
-              ],
-            ),
+          Row(
+            children: [
+              const Text('Neural Core', style: TextStyle(
+                color: AppTheme.textPrimary, fontSize: 16,
+                fontWeight: FontWeight.w600, letterSpacing: -0.2,
+              )),
+              const SizedBox(width: 8),
+              // Pulsing Green Status Dot
+              Container(
+                width: 6, height: 6,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF10B981),
+                  shape: BoxShape.circle,
+                ),
+              ).animate(onPlay: (c) => c.repeat(reverse: true))
+               .fade(begin: 0.4, end: 1.0, duration: 1.seconds),
+            ],
           ),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.tune_rounded, color: AppTheme.textSecondary, size: 22),
-            color: AppTheme.cardColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            icon: const Icon(Icons.more_horiz_rounded, color: AppTheme.textSecondary, size: 24),
+            color: AppTheme.surfaceDark,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: AppTheme.border),
+            ),
             onSelected: (model) => ref.read(chatProvider.notifier).setModel(model),
-            itemBuilder: (_) => ['llama3', 'llama3.2', 'phi3', 'mistral', 'gemma2', 'codellama']
-                .map((m) => PopupMenuItem(value: m, child: Row(children: [
-                  Icon(m == selectedModel ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                    color: m == selectedModel ? AppTheme.accentPrimary : AppTheme.textMuted, size: 18),
-                  const SizedBox(width: 10),
-                  Text(m, style: TextStyle(
-                    color: m == selectedModel ? AppTheme.textPrimary : AppTheme.textSecondary,
-                    fontWeight: m == selectedModel ? FontWeight.w600 : FontWeight.w400,
-                  )),
-                ]))).toList(),
-          ),
-          IconButton(
-            onPressed: () => ref.read(chatProvider.notifier).clearChat(),
-            icon: const Icon(Icons.delete_outline_rounded, color: AppTheme.textSecondary, size: 22),
-            tooltip: 'Clear chat',
+            itemBuilder: (_) => ['llama3', 'llama3.2', 'phi3', 'mistral', 'gemma2', 'qwen']
+                .map((m) => PopupMenuItem(value: m, child: Text(m, style: const TextStyle(color: AppTheme.textPrimary)))).toList(),
           ),
         ],
       ),
@@ -153,51 +142,72 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // Glowing Monogram
           Container(
-            width: 80, height: 80,
+            width: 64, height: 64,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [AppTheme.accentPrimary, AppTheme.accentSecondary],
-              ),
-              boxShadow: AppTheme.glowShadow,
+              color: Colors.white.withOpacity(0.03),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.white.withOpacity(0.02),
+                  blurRadius: 30,
+                  spreadRadius: 5,
+                )
+              ],
+              border: Border.all(color: Colors.white.withOpacity(0.08)),
             ),
-            child: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 36),
-          ),
+            child: const Icon(Icons.blur_on_rounded, color: Colors.white70, size: 32),
+          ).animate().fade(duration: 800.ms).scale(begin: const Offset(0.9, 0.9)),
+          
           const SizedBox(height: 24),
-          const Text('Start a conversation', style: TextStyle(
-            color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.w700,
-          )),
-          const SizedBox(height: 8),
-          const Text('Your local AI agent is ready.\nType a message below to begin.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppTheme.textMuted, fontSize: 14, height: 1.5),
-          ),
+          
+          const Text(
+            'How can I assist you?',
+            style: TextStyle(
+              color: Color(0xFFEDEDED), 
+              fontSize: 22, 
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.5,
+            ),
+          ).animate().fade(delay: 200.ms, duration: 800.ms),
+          
           const SizedBox(height: 32),
-          Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: [
-            _chip('Explain async/await in Dart'),
-            _chip('Write a Flutter widget'),
-            _chip('What is Riverpod?'),
-          ]),
+          
+          // Starter Chips
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            alignment: WrapAlignment.center,
+            children: [
+              _buildChip('Explain a concept'),
+              _buildChip('Analyze snippet'),
+              _buildChip('Brainstorm ideas'),
+            ],
+          ).animate().fade(delay: 400.ms, duration: 800.ms),
         ],
       ),
     );
   }
 
-  Widget _chip(String text) {
+  Widget _buildChip(String text) {
     return GestureDetector(
       onTap: () => ref.read(chatProvider.notifier).sendMessage(text),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
+          color: const Color(0xFF141416).withOpacity(0.8),
           borderRadius: BorderRadius.circular(24),
-          color: AppTheme.surfaceDark,
-          border: Border.all(color: Colors.black.withOpacity(0.05)),
-          boxShadow: AppTheme.cardShadow,
+          border: Border.all(color: Colors.white.withOpacity(0.08)),
         ),
-        child: Text(text, style: const TextStyle(
-          color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w500,
-        )),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Color(0xFFA0A0A5),
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ),
     );
   }
@@ -205,12 +215,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget _buildMessageList(chatState) {
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.only(top: 16, bottom: 8),
-      itemCount: chatState.messages.length + (chatState.isLoading ? 1 : 0),
+      padding: const EdgeInsets.only(top: 16, bottom: 120), // Padding for floating input
+      itemCount: chatState.messages.length,
       itemBuilder: (context, index) {
-        if (index == chatState.messages.length && chatState.isLoading) {
-          return const TypingIndicator();
-        }
         return ChatBubble(message: chatState.messages[index]);
       },
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../models/chat_message.dart';
 import '../theme/app_theme.dart';
 
@@ -12,104 +13,138 @@ class ChatBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final isUser = message.isUser;
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: isUser ? 64 : 16,
-        right: isUser ? 16 : 64,
-        top: 6,
-        bottom: 6,
-      ),
-      child: Column(
-        crossAxisAlignment:
-            isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4, left: 4, right: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (!isUser) ...[
-                  Container(
-                    width: 20,
-                    height: 20,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [AppTheme.accentSecondary, AppTheme.accentPrimary],
-                      ),
-                    ),
-                    child: const Icon(Icons.auto_awesome, size: 12, color: Colors.white),
-                  ),
-                  const SizedBox(width: 6),
-                ],
-                Text(
-                  isUser ? 'You' : 'Agent',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: isUser ? AppTheme.accentPrimary : AppTheme.accentSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ],
+    // AI "Thinking" Indicator (Sine wave dots)
+    if (!isUser && message.text.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(left: 24, top: 24, bottom: 16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AvatarIcon(),
+            SizedBox(width: 16),
+            Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: ThinkingWave(),
             ),
-          ),
-          GestureDetector(
+          ],
+        ),
+      );
+    }
+
+    if (isUser) {
+      // USER BUBBLE: Right-aligned, pill shape, subtle #1E1E22 background, razor-thin border
+      return Padding(
+        padding: const EdgeInsets.only(left: 64, right: 24, top: 12, bottom: 12),
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: GestureDetector(
             onLongPress: () {
               Clipboard.setData(ClipboardData(text: message.text));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Copied to clipboard', style: TextStyle(color: Colors.white)),
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: AppTheme.textPrimary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                  ),
-                  duration: const Duration(seconds: 1),
-                ),
-              );
             },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
+            child: Container(
               decoration: BoxDecoration(
-                gradient: isUser ? AppTheme.userBubbleGradient : null,
-                color: isUser ? null : AppTheme.aiBubbleColor,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(AppTheme.radiusMd),
-                  topRight: const Radius.circular(AppTheme.radiusMd),
-                  bottomLeft: Radius.circular(isUser ? AppTheme.radiusMd : AppTheme.radiusSm),
-                  bottomRight: Radius.circular(isUser ? AppTheme.radiusSm : AppTheme.radiusMd),
-                ),
-                border: isUser ? null : Border.all(color: Colors.black.withOpacity(0.05), width: 1),
-                boxShadow: isUser 
-                    ? [BoxShadow(color: AppTheme.accentPrimary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))] 
-                    : AppTheme.cardShadow,
+                color: const Color(0xFF1E1E22),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.white.withOpacity(0.08)),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               child: SelectableText(
                 message.text,
-                style: TextStyle(
-                  color: isUser ? Colors.white : AppTheme.textPrimary,
-                  fontSize: 15,
+                style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 16,
                   height: 1.5,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
-            child: Text(
-              _formatTime(message.timestamp),
-              style: Theme.of(context).textTheme.labelSmall,
+        ),
+      ).animate().fade(duration: 400.ms, curve: Curves.easeOut);
+    } else {
+      // AI BUBBLE: Left-aligned, no wrapper, pure text with avatar
+      return Padding(
+        padding: const EdgeInsets.only(left: 24, right: 48, top: 12, bottom: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const AvatarIcon(),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: GestureDetector(
+                  onLongPress: () {
+                    Clipboard.setData(ClipboardData(text: message.text));
+                  },
+                  child: SelectableText(
+                    message.text,
+                    style: const TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 16,
+                      height: 1.5,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
+      ).animate().fade(duration: 400.ms, curve: Curves.easeOut);
+    }
+  }
+}
+
+class AvatarIcon extends StatelessWidget {
+  const AvatarIcon({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 32, height: 32,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withOpacity(0.05),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
       ),
+      child: const Icon(Icons.blur_on_rounded, color: Colors.white70, size: 18),
     );
   }
+}
 
-  String _formatTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m';
+class ThinkingWave extends StatelessWidget {
+  const ThinkingWave({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(3, (index) {
+        // Continuous scale & opacity phase shift via flutter_animate
+        return Container(
+          width: 6, height: 6,
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.6),
+            shape: BoxShape.circle,
+          ),
+        ).animate(onPlay: (c) => c.repeat())
+         .scale(
+           begin: const Offset(0.6, 0.6), 
+           end: const Offset(1.2, 1.2), 
+           duration: 600.ms, 
+           curve: Curves.easeInOutSine, 
+           delay: (index * 200).ms
+         )
+         .then()
+         .scale(
+           begin: const Offset(1.2, 1.2), 
+           end: const Offset(0.6, 0.6), 
+           duration: 600.ms, 
+           curve: Curves.easeInOutSine
+         );
+      }),
+    );
   }
 }
